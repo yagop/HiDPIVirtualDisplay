@@ -44,10 +44,6 @@ NS_ASSUME_NONNULL_BEGIN
 /// @return YES if successful
 - (BOOL)stopMirroringForDisplay:(CGDirectDisplayID)displayID;
 
-/// Destroy a virtual display
-/// @param displayID The display ID to destroy
-- (void)destroyVirtualDisplay:(CGDirectDisplayID)displayID;
-
 /// Destroy all virtual displays created by this manager
 - (void)destroyAllVirtualDisplays;
 
@@ -57,7 +53,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// Get the display ID of the main display
 - (CGDirectDisplayID)mainDisplayID;
 
-/// Check if a display is virtual
+/// Check if a display is virtual (vendor 0x1234), whichever process owns it
 - (BOOL)isVirtualDisplay:(CGDirectDisplayID)displayID;
 
 @end

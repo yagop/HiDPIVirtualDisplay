@@ -402,8 +402,8 @@ func printUsage() {
         \(colorize("create-custom", .green))            Create custom virtual display
         \(colorize("mirror", .green)) <source> <target> Mirror source display to target
         \(colorize("unmirror", .green)) <display>       Stop mirroring for display
-        \(colorize("destroy", .green)) <display>        Destroy a virtual display
-        \(colorize("destroy-all", .green))              Destroy all virtual displays
+        \(colorize("destroy", .green)) <display>        Show how to free a virtual display
+        \(colorize("destroy-all", .green))              Show how to free all virtual displays
         \(colorize("keep-alive", .green))               Keep virtual displays alive (run in background)
 
     \(colorize("EXAMPLES:", .yellow))
@@ -638,16 +638,36 @@ func unmirrorDisplay(_ displayID: CGDirectDisplayID) {
     }
 }
 
-func destroyDisplay(_ displayID: CGDirectDisplayID) {
-    let manager = VirtualDisplayManager.shared()
-    manager.destroyVirtualDisplay(displayID)
-    print(colorize("Virtual display \(displayID) destroyed.", .green))
+func existingVirtualDisplays() -> [CGDirectDisplayID] {
+    VirtualDisplayManager.shared().listAllDisplays()
+        .filter { $0["isVirtual"] as? Bool ?? false }
+        .compactMap { $0["id"] as? UInt32 }
 }
 
-func destroyAllDisplays() {
-    let manager = VirtualDisplayManager.shared()
-    manager.destroyAllVirtualDisplays()
-    print(colorize("All virtual displays destroyed.", .green))
+// A virtual display lives only as long as the process that created it.
+// Creating another one would stack displays instead of reusing the first.
+func exitIfVirtualDisplayExists() {
+    let ids = existingVirtualDisplays()
+    guard !ids.isEmpty else { return }
+    let list = ids.map(String.init).joined(separator: ", ")
+    print(colorize("Error: virtual display already active (ID: \(list))", .red))
+    print("Reuse it, or stop the process that created it (Ctrl+C in its terminal) first.")
+    exit(1)
+}
+
+// This process never owns displays created by another invocation, so it
+// cannot destroy them. Only the owner process can, by exiting.
+func explainDestroy() {
+    let ids = existingVirtualDisplays()
+    if ids.isEmpty {
+        print("No virtual displays active.")
+        exit(0)
+    }
+    let list = ids.map(String.init).joined(separator: ", ")
+    print(colorize("Virtual displays active: \(list)", .yellow))
+    print("A virtual display is freed when the process that created it exits.")
+    print("Stop that process (Ctrl+C in its terminal, or: pkill -INT hidpi-virtual-display).")
+    exit(1)
 }
 
 func keepAlive() {
@@ -690,6 +710,7 @@ case "create":
         print("Usage: hidpi-virtual-display create <preset-name>")
         exit(1)
     }
+    exitIfVirtualDisplayExists()
     let displayID = createFromPreset(args[2])
     if displayID != kCGNullDirectDisplay {
         keepAlive()
@@ -709,6 +730,7 @@ case "create-custom":
     }
     let hiDPI = args[5].lowercased() == "true"
     let name = args[6]
+    exitIfVirtualDisplayExists()
     let displayID = createCustomDisplay(width: width, height: height, ppi: ppi, hiDPI: hiDPI, name: name)
     if displayID != kCGNullDirectDisplay {
         keepAlive()
@@ -739,20 +761,8 @@ case "unmirror":
     }
     unmirrorDisplay(CGDirectDisplayID(displayID))
 
-case "destroy":
-    if args.count < 3 {
-        print(colorize("Error: Missing display ID", .red))
-        print("Usage: hidpi-virtual-display destroy <display-id>")
-        exit(1)
-    }
-    guard let displayID = UInt32(args[2]) else {
-        print(colorize("Error: Invalid display ID", .red))
-        exit(1)
-    }
-    destroyDisplay(CGDirectDisplayID(displayID))
-
-case "destroy-all":
-    destroyAllDisplays()
+case "destroy", "destroy-all":
+    explainDestroy()
 
 case "keep-alive":
     keepAlive()

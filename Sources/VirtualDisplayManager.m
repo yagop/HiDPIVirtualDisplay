@@ -232,11 +232,6 @@
     return YES;
 }
 
-- (void)destroyVirtualDisplay:(CGDirectDisplayID)displayID {
-    NSLog(@"Destroying virtual display: %u", displayID);
-    [self.virtualDisplays removeObjectForKey:@(displayID)];
-}
-
 - (void)destroyAllVirtualDisplays {
     NSLog(@"Destroying all virtual displays (%lu total)",
           (unsigned long)self.virtualDisplays.count);
@@ -291,8 +286,10 @@
     return CGMainDisplayID();
 }
 
+// Match by vendor, not by our own dictionary, so displays owned by other
+// processes (another CLI instance or the app) are detected too.
 - (BOOL)isVirtualDisplay:(CGDirectDisplayID)displayID {
-    return self.virtualDisplays[@(displayID)] != nil;
+    return CGDisplayVendorNumber(displayID) == 0x1234;
 }
 
 @end
